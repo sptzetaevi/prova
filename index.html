@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>IL MIO Lavoro</title>
+  <style>
+    :root{
+      --maxw: 1200px;
+      --gap: 14px;
+      --radius: 14px;
+      --border: rgba(0,0,0,.12);
+      --bg: #fafafa;
+    }
+    *{ box-sizing: border-box; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color:#111;
+    }
+    header{
+      padding: 22px 16px 10px;
+      border-bottom: 1px solid var(--border);
+      background: #fff;
+    }
+    .wrap{
+      max-width: var(--maxw);
+      margin: 0 auto;
+    }
+    h1{
+      margin: 0;
+      font-size: 28px;
+      letter-spacing: .2px;
+    }
+    main{
+      padding: 18px 16px 28px;
+    }
+
+    /* Griglia 4 colonne (poi 2, poi 1) */
+    .grid{
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--gap);
+      align-items: start;
+    }
+    @media (max-width: 1100px){
+      .grid{ grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 600px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+
+    .card{
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 1px 8px rgba(0,0,0,.05);
+    }
+
+    /* contenitore con ratio 16:9 */
+    .media{
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      position: relative;
+    }
+
+    /* usa iframe per YouTube/Vimeo ecc. */
+    .media iframe{
+      width: 100%;
+      height: 100%;
+      border: 0;
+      display: block;
+    }
+
+    /* fallback: se vuoi video locali mp4, usa <video> al posto dell'iframe */
+    .media video{
+      width: 100%;
+      height: 100%;
+      display:block;
+    }
+
+    .meta{
+      padding: 10px 12px 12px;
+      font-size: 14px;
+      color: #444;
+      line-height: 1.35;
+    }
+    .label{
+      font-weight: 600;
+      color:#111;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="wrap">
+      <h1>IL MIO Lavoro</h1>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <div class="grid">
+
+        <!-- VIDEO 1 -->
+        <section class="card">
+          <div class="media">
+            <iframe
+              src=""
+              title="Video 1"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowfullscreen
+              loading="lazy"></iframe>
+          </div>
+          <div class="meta"><span class="label">Video 1:</span> (inserisci qui una breve descrizione)</div>
+        </section>
+
+        <!-- VIDEO 2 -->
+        <section class="card">
+          <div class="media">
+            <iframe
+              src=""
+              title="Video 2"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowfullscreen
+              loading="lazy"></iframe>
+          </div>
+          <div class="meta"><span class="label">Video 2:</span> (inserisci qui una breve descrizione)</div>
+        </section>
+
+        <!-- VIDEO 3 -->
+        <section class="card">
+          <div class="media">
+            <iframe
+              src=""
+              title="Video 3"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowfullscreen
+              loading="lazy"></iframe>
+          </div>
+          <div class="meta"><span class="label">Video 3:</span> (inserisci qui una breve descrizione)</div>
+        </section>
+
+        <!-- VIDEO 4 -->
+        <section class="card">
+          <div class="media">
+            <iframe
+              src=""
+              title="Video 4"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowfullscreen
+              loading="lazy"></iframe>
+          </div>
+          <div class="meta"><span class="label">Video 4:</span> (inserisci qui una breve descrizione)</div>
+        </section>
+
+      </div>
+    </div>
+  </main>
+</body>
+</html>
