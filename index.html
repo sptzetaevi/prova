@@ -2,164 +2,2084 @@
 <html lang="it">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>IL MIO Lavoro</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Visivamente — Crea mappe mentali online</title>
   <style>
-    :root{
-      --maxw: 1200px;
-      --gap: 14px;
-      --radius: 14px;
-      --border: rgba(0,0,0,.12);
-      --bg: #fafafa;
+    :root {
+      --bg:#f6f7fb;
+      --grid:rgba(0,0,0,.06);
+      --ink:#1a1a1a;
+      --controls-bottom:20px;  /* distanza di base dal fondo per i controlli flottanti */
     }
-    *{ box-sizing: border-box; }
-    body{
-      margin:0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background: var(--bg);
-      color:#111;
-    }
+
+    html, body { height:100%; margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; color:var(--ink); }
+    #app { height:100%; display:grid; grid-template-rows:auto 1fr; }
+
+    /* HEADER con wrapper interno + maniglia */
     header{
-      padding: 22px 16px 10px;
-      border-bottom: 1px solid var(--border);
-      background: #fff;
+      position:sticky;
+      top:0;
+      z-index:10;
+      background:#fff;
+      border-bottom:1px solid rgba(0,0,0,.08);
+      box-shadow:0 2px 6px rgba(0,0,0,.06);
+      box-sizing:border-box;
     }
-    .wrap{
-      max-width: var(--maxw);
-      margin: 0 auto;
-    }
-    h1{
-      margin: 0;
-      font-size: 28px;
-      letter-spacing: .2px;
-    }
-    main{
-      padding: 18px 16px 28px;
+    .headerInner{
+  gap:10px;
+
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      padding:10px 12px;
     }
 
-    /* Griglia 4 colonne (poi 2, poi 1) */
-    .grid{
+    /* Maniglia-cassetto ingrandita con frecce */
+    .rightButtons{
+      margin-left:auto;
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .headerHandle{
+      width:100%;
+      height:20px;                       /* più alta */
+      background:rgba(0,0,0,.18);        /* un po' più visibile */
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+    }
+    .headerHandle::before{
+      content:"▲ ▼";                     /* frecce su/giù */
+      font-size:11px;
+      letter-spacing:3px;
+      color:#f5f5f5;
+      opacity:0.9;
+    }
+
+    header.collapsed .headerInner{
+  gap:10px;
+
+      display:none;
+    }
+
+    .btn{
+      border:1px solid rgba(0,0,0,.18);
+      background:#fff;
+      border-radius:10px;
+      padding:7px 10px;
+      cursor:pointer;
+      font-size:13px;
+      user-select:none;
+      white-space:nowrap;
+    }
+    .btn:hover{ background:#f7f7f7; }
+    .btn.active{
+      border-color: rgba(0,120,255,.55);
+      box-shadow: 0 0 0 3px rgba(0,120,255,.18);
+    }
+    .btn.danger{ border-color: rgba(200,0,0,.28); }
+    .btn.danger:hover{ background: rgba(200,0,0,.06); }
+
+    .hint{ font-size:13px; opacity:.75; flex: 1 1 320px; }
+    kbd{
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      font-size:12px; border:1px solid rgba(0,0,0,.2); border-bottom-width:2px;
+      padding:1px 6px; border-radius:6px; background:#fafafa;
+    }
+    .status{ font-size:13px; opacity:.9; white-space:nowrap; flex:1 1 60%; order:90; margin-top:4px; padding:4px 8px; border-radius:6px; background:#e5e5e5; }
+
+    .textControls{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      font-size:13px;
+      white-space:nowrap;
+      flex: 0 0 auto;        /* solo lo spazio necessario */
+      order: 90;             /* stessa riga della status */
+      justify-content:flex-end;
+      margin-top:4px;
+      margin-left:auto;      /* spinge i comandi testo a destra */
+    }
+    .textControls input[type="color"]{
+      width:26px;
+      height:26px;
+      padding:0;
+      border-radius:6px;
+      border:1px solid rgba(0,0,0,.18);
+      background:#fff;
+      cursor:pointer;
+    }
+    .btn.tiny{
+      padding:4px 7px;
+      font-size:12px;
+      border-radius:8px;
+    }
+    .btn.tiny.active{
+      border-color: rgba(0,120,255,.7);
+      box-shadow:0 0 0 2px rgba(0,120,255,.22);
+    }
+
+    #board{
+      position:relative; overflow:hidden;
+      touch-action: none;
+      background:
+        linear-gradient(var(--bg), var(--bg)),
+        repeating-linear-gradient(0deg, transparent, transparent 23px, var(--grid) 24px),
+        repeating-linear-gradient(90deg, transparent, transparent 23px, var(--grid) 24px);
+    }
+    #viewport{
+      position:absolute;
+      left:0; top:0;
+      width:8000px;
+      height:8000px;
+      transform-origin: 0 0;
+    }
+
+    #world{
+      position:absolute;
+      left:0;
+      top:0;
+      width:100%;
+      height:100%;
+      pointer-events:none;
+    }
+
+    svg{
+      position:absolute; inset:0;
+      width:100%;
+      height:100%;
+      overflow:visible;
+      pointer-events:auto;
+    }
+
+    .pop{
+      position:absolute;
+      min-width:20ch;
+      max-width:32ch;
+      background:#fff;
+      border:1px solid rgba(0,0,0,.55);
+      border-radius:14px;
+      box-shadow:0 8px 24px rgba(0,0,0,.10);
+      padding:6px;
+      box-sizing:border-box;
+      user-select:none;
+      cursor:grab;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      touch-action:none;
+      pointer-events:auto;
+    }
+
+    .pop:focus-within{
+      min-width:20ch;
+    }
+
+    .pop:active{ cursor:grabbing; }
+    .pop.selected{ outline:3px solid rgba(0,120,255,.25); }
+    .pop.linking{ background:rgba(0,120,255,.08)!important; border-color:rgba(0,120,255,.35)!important; }
+
+    .body{
+      width:100%;
+      max-width:none;
+      border:0;
+      outline:0;
+      resize:none;
+      overflow-y:auto;
+      background:transparent;
+      color:inherit;
+      font-size:14px;
+      line-height:1.25;
+      padding:0;
+      margin:0;
+      box-sizing:border-box;
+      min-height:1.25em;
+      white-space:pre-wrap;
+      word-break:normal;
+      text-align:center;
+    }
+
+    .body::placeholder{
+      color:rgba(0,0,0,.45);
+      font-size:12px;
+      text-align:center;
+    }
+
+    .linkLine{
+      pointer-events:stroke;
+      fill: none;
+      cursor:pointer;
+      stroke: rgba(0,0,0,.55);
+      stroke-width: 2;
+      stroke-linecap: round;
+    }
+    .linkLine.selected{
+      stroke-width: 3;
+    }
+
+    .ghost{
+      position:absolute; inset:0; pointer-events:none;
+      display:flex; align-items:center; justify-content:center;
+      font-size:14px; opacity:.55;
+    }
+
+    /* Controlli flottanti in basso a destra/sinistra */
+    #controlsRight {
+      position: fixed;
+      bottom: var(--controls-bottom);
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 999;
+      pointer-events:none;
+    }
+
+    #controlsLeft {
+      position: fixed;
+      bottom: var(--controls-bottom);
+      left: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 999;
+      pointer-events:none;
+    }
+
+    #controlsRight .btn,
+    #controlsLeft .btn {
+      pointer-events: auto;
+    }
+
+    /* Ingrandisco i pulsanti flottanti +, - e ✋ */
+    #controlsRight .btn.tiny {
+      padding: 8px 12px;
+      font-size: 15px;
+      border-radius: 12px;
+      min-width: 40px;
+    }
+
+    /* Pan flottante ben visibile quando attivo */
+    #btnPan_f.active {
+      background: rgba(0,120,255,.12);
+      border-color: rgba(0,120,255,.8);
+      box-shadow: 0 0 0 3px rgba(0,120,255,.25);
+    }
+
+    /* Sposta flottante ben visibile quando attivo */
+    #btnMove_f.active {
+      background: rgba(0,120,255,.12);
+      border-color: rgba(0,120,255,.8);
+      box-shadow: 0 0 0 3px rgba(0,120,255,.25);
+    }
+
+    /* Nascondo i bottoni originali nel header,
+       ma li tengo nel DOM per riusare tutta la logica JS */
+    #btnZoomIn,
+    #btnZoomOut,
+    #btnPan,
+    #btnMove,
+    #btnLink {
+      display: none !important;
+    }
+
+    @media print {
+      header { display:none !important; }
+      .ghost { display:none !important; }
+
+      html, body { height: 100% !important; }
+      #app { height: 100% !important; }
+
+      #board {
+        background:#fff !important;
+        overflow: visible !important;
+        height: 100vh !important;
+      }
+
+      #wires {
+        width: 100% !important;
+        height: 100% !important;
+      }
+
+      svg {
+        overflow: visible !important;
+      }
+    }
+
+    #mapTitle { font-weight:800; letter-spacing:2px; user-select:none; margin-left:6px; flex:0 0 auto; }
+    #mapTitle .mapWord { font-size:16px; }
+    #mapTitle .mentalWord { font-size:22px; }
+
+    /* --- LOGO/LINK ALLA HOME (coerente con homepage) --- */
+    .homeLogo{
+      margin-left: 0;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+    }
+    .homeLogo .logoLetters{
+      width: 44px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.7);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.10);
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: var(--gap);
-      align-items: start;
-    }
-    @media (max-width: 1100px){
-      .grid{ grid-template-columns: repeat(2, 1fr); }
-    }
-    @media (max-width: 600px){
-      .grid{ grid-template-columns: 1fr; }
-    }
-
-    .card{
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      box-shadow: 0 1px 8px rgba(0,0,0,.05);
-    }
-
-    /* contenitore con ratio 16:9 */
-    .media{
-      width: 100%;
-      aspect-ratio: 16 / 9;
-      background: #000;
+      place-items: center;
       position: relative;
+      overflow: hidden;
+      color: var(--ink);
     }
-
-    /* usa iframe per YouTube/Vimeo ecc. */
-    .media iframe{
-      width: 100%;
-      height: 100%;
-      border: 0;
-      display: block;
+    .homeLogo .logoLetters::before,
+    .homeLogo .logoLetters::after{
+      display:none;
+      content:none;
     }
-
-    /* fallback: se vuoi video locali mp4, usa <video> al posto dell'iframe */
-    .media video{
-      width: 100%;
-      height: 100%;
+    .homeLogo .logoLetters .vm-logo{
       display:block;
+      width:44px;
+      height:34px;
     }
 
-    .meta{
-      padding: 10px 12px 12px;
-      font-size: 14px;
-      color: #444;
-      line-height: 1.35;
+/* POPUP generici */
+    .modalOverlay{
+      position:fixed; inset:0;
+      background:rgba(0,0,0,.35);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:9999;
     }
-    .label{
-      font-weight: 600;
-      color:#111;
+    .modal{
+      width:min(420px, 92vw);
+      background:#fff;
+      border:1px solid rgba(0,0,0,.25);
+      border-radius:16px;
+      box-shadow:0 16px 50px rgba(0,0,0,.20);
+      padding:14px;
     }
-  </style>
+    .modal h3{ margin:0 0 10px 0; font-size:16px; }
+    .modal .row{ display:flex; gap:12px; flex-wrap:wrap; margin:10px 0; }
+    .modal label{ display:flex; gap:8px; align-items:center; font-size:14px; cursor:pointer; }
+    .modal .actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:12px; }
+  
+    /* Pulsante triplo Salva rapido / Opzioni salvataggio / Importa */
+    .tripleSplit{
+      display:inline-flex;
+      flex-direction:row;
+      margin:0 6px;
+    }
+    .tripleSplit .btn{
+      padding:4px 10px;
+      font-size:12px;
+      border-radius:0;
+    }
+    .tripleSplit .btn.tripleLeft{
+      border-radius:10px 0 0 10px;
+    }
+    .tripleSplit .btn.tripleCenter{
+      border-radius:0;
+      border-left:1px solid rgba(0,0,0,.18);
+      border-right:1px solid rgba(0,0,0,.18);
+    }
+    .tripleSplit .btn.tripleRight{
+      border-radius:0 10px 10px 0;
+      border-left:1px solid rgba(0,0,0,.18);
+    }
+
+    
+/* Ottimizzazioni base per schermi piccoli */
+    @media (max-width: 768px) {
+  .headerInner {
+    padding:6px 8px;
+    flex-wrap:wrap;
+  }
+
+  #mapTitle {
+    font-size:20px;
+    font-weight:800;
+    letter-spacing:2px;
+    user-select:none;
+    margin-left:6px;
+    flex:1 1 100%;
+  }
+
+  .status{
+    font-size:13px;
+    opacity:.9;
+    white-space:normal;
+    flex:1 1 100%;
+    order:90;
+    margin-top:4px;
+    padding:4px 8px;
+    border-radius:6px;
+    background:#e5e5e5;
+  }
+
+  .textControls {
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    flex:1 1 100%;
+    justify-content:flex-start;
+    margin-top:4px;
+  }
+
+  .btn {
+    font-size:12px;
+    padding:5px 7px;
+    white-space:nowrap;
+  }
+
+  .pop {
+    max-width: 28ch;
+  }
+}
+</style>
 </head>
 
 <body>
-  <header>
-    <div class="wrap">
-      <h1>IL MIO Lavoro</h1>
-    </div>
-  </header>
+<div id="app">
+    
+  <header id="mainHeader">
+    <div class="headerInner">
+      <!-- Logo prima -->
+      <a
+         class="homeLogo"
+         href="/"
+         title="Torna alla pagina principale ANTIMAPPIFICIO">
+        
+<span class="logoLetters" style="border:none;background:transparent;box-shadow:none;">
+<svg width="42" height="42" viewBox="0 0 100 100">
+  <path d="M10 20 L35 80 L60 20" 
+        fill="none" stroke="#1a1a1a" stroke-width="8" stroke-linecap="round"/>
+  <g stroke="#1a1a1a" stroke-width="3" fill="#1a1a1a">
+    <circle cx="60" cy="30" r="4"/>
+    <circle cx="75" cy="60" r="4"/>
+    <circle cx="90" cy="30" r="4"/>
+    <circle cx="68" cy="45" r="4"/>
+    <circle cx="82" cy="45" r="4"/>
+    <line x1="60" y1="30" x2="68" y2="45"/>
+    <line x1="68" y1="45" x2="75" y2="60"/>
+    <line x1="75" y1="60" x2="82" y2="45"/>
+    <line x1="82" y1="45" x2="90" y2="30"/>
+    <line x1="68" y1="45" x2="82" y2="45"/>
+  </g>
+</svg>
+</span>
 
-  <main>
-    <div class="wrap">
-      <div class="grid">
+      </a>
 
-        <!-- VIDEO 1 -->
-        <section class="card">
-          <div class="media">
-            <iframe
-              src=""
-              title="Video 1"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowfullscreen
-              loading="lazy"></iframe>
-          </div>
-          <div class="meta"><span class="label">Video 1:</span> (inserisci qui una breve descrizione)</div>
-        </section>
+      <!-- Titolo subito dopo il logo -->
+      <span id="mapTitle"><span class="mapWord">MAPPA</span> <span class="mentalWord">MENTALE</span></span>
 
-        <!-- VIDEO 2 -->
-        <section class="card">
-          <div class="media">
-            <iframe
-              src=""
-              title="Video 2"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowfullscreen
-              loading="lazy"></iframe>
-          </div>
-          <div class="meta"><span class="label">Video 2:</span> (inserisci qui una breve descrizione)</div>
-        </section>
+      <!-- Tutti gli altri tasti -->
+      <div class="rightButtons"><button class="btn" id="btnNew" >+ Nuovo pop</button>
+      <button class="btn" id="btnMove">Sposta</button>
+      <button class="btn" id="btnLink">Collega</button>
+      <button class="btn danger" id="btnDelete">Elimina</button>
 
-        <!-- VIDEO 3 -->
-        <section class="card">
-          <div class="media">
-            <iframe
-              src=""
-              title="Video 3"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowfullscreen
-              loading="lazy"></iframe>
-          </div>
-          <div class="meta"><span class="label">Video 3:</span> (inserisci qui una breve descrizione)</div>
-        </section>
+      <button class="btn" id="btnPdf">Stampa in PDF</button>
 
-        <!-- VIDEO 4 -->
-        <section class="card">
-          <div class="media">
-            <iframe
-              src=""
-              title="Video 4"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowfullscreen
-              loading="lazy"></iframe>
-          </div>
-          <div class="meta"><span class="label">Video 4:</span> (inserisci qui una breve descrizione)</div>
-        </section>
+      <!-- Pulsante triplo compatto orizzontale: Salva rapido / Opzioni salvataggio / Importa -->
+      <div class="tripleSplit">
+        <button class="btn tripleLeft" id="btnQuickSave">
+          <span>Salva</span>
+        </button>
+        <button class="btn tripleCenter" id="btnSaveOptions">
+          <span>Salva con nome</span>
+        </button>
+        <button class="btn tripleRight" id="btnImport">
+          <span>Apri…</span>
+        </button>
+      </div>
 
+      <input id="fileInput" type="file" accept=".json,.html" style="display:none" />
+
+      <button class="btn tiny" id="btnZoomIn">+</button>
+      <button class="btn tiny" id="btnZoomOut">-</button>
+      <button class="btn tiny" id="btnPan" title="Pan vista">
+        <span aria-hidden="true">✋</span>
+      </button>
+      <button class="btn tiny" id="btnKeyboardHelp">Info e comandi</button>
+
+      <!-- Seconda riga: suggerimenti + comandi testo a destra -->
+      </div>
+      <span class="status" id="status">Avvio...</span>
+
+      <div class="textControls">
+        <span>Formato:</span>
+        <input type="color" id="txtColor" value="#000000" disabled>
+        <button class="btn tiny" id="btnSizeSmall" disabled>-</button>
+        <button class="btn tiny" id="btnSizeLarge" disabled>+</button>
+        <button class="btn tiny" id="btnBold" disabled><b>B</b></button>
       </div>
     </div>
-  </main>
+
+    <div class="headerHandle" id="headerHandle" title="Mostra/nascondi strumenti"></div>
+  </header>
+
+  <div id="board">
+    <div id="viewport">
+      <svg id="wires"></svg>
+      <div id="world"></div>
+    </div>
+
+    <div class="ghost">Doppio click sullo sfondo per creare un pop</div>
+  </div>
+
+  <!-- BOX Info e comandi -->
+  <div class="modalOverlay" id="kbdOverlay">
+    <div class="modal">
+      <h3>Info e comandi</h3>
+      <p style="font-size:14px; line-height:1.4; margin:6px 0 10px;">
+        Doppio click = crea box • Trascina sfondo in modalità Pan = sposta vista • click linea = seleziona (per eliminare) •
+        doppio click linea = modifica • <kbd>CANC</kbd>/Elimina = elimina • <kbd>ESC</kbd> = annulla collega
+      </p>
+      <div class="actions">
+        <button class="btn tiny" id="btnKbdClose">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANNELLO OPZIONI SALVATAGGIO -->
+  <div class="modalOverlay" id="saveOverlay">
+    <div class="modal">
+      <h3>Opzioni di salvataggio</h3>
+      <div class="row">
+        <label>
+          <input type="radio" name="saveFormat" value="json" checked>
+         JSON (salva un file che potrai re-importare per modificare)
+        </label>
+        <label>
+          <input type="radio" name="saveFormat" value="html">
+          HTML (salva un file che potrai re-importare ma anche aprire con il tuo browser - es.firefox, edge, chrome ecc..)
+        </label>
+      </div>
+      <div class="row">
+        <label style="flex:1; flex-direction:column; align-items:flex-start;">
+          <span>Nome file:</span>
+          <input type="text" id="saveFileName"
+                 style="width:100%; margin-top:4px; padding:4px 6px; font-size:14px; box-sizing:border-box;">
+        </label>
+      </div>
+      <p style="font-size:12px; opacity:0.8; margin:4px 0 0;">
+        Puoi scrivere il nome senza estensione: verrà aggiunta automaticamente (.json o .html).
+      </p>
+      <div class="actions">
+        <button class="btn tiny" id="btnSaveCancel">Annulla</button>
+        <button class="btn tiny" id="btnSaveConfirm">Salva</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANNELLO OPZIONI STAMPA -->
+  <div class="modalOverlay" id="printOverlay">
+    <div class="modal">
+      <h3>Stampa mappa</h3>
+      <p style="font-size:14px; line-height:1.4; margin:6px 0 10px;">
+        Verrà stampata solo la <b>mappa mentale</b> visualizzata a schermo.<br>
+        Se l'impaginazione <b>non è corretta</b>, annullare la stampa e <b>usare i tasti in basso a destra</b> (+; -; pan) per centrare la mappa <b>nello schermo</b> prima di riprovare.
+        <br><br>
+        La stampa in PDF produce un file che viene salvato sul PC. Controllare di aver impostato come stampante "Salva come PDF" e non una stampante fisica (es. EPSON ecc.).
+      </p>
+      <div class="row">
+        <label style="font-size:14px;">
+          <input type="radio" name="printScope" value="map" checked>
+          Stampa mappa mentale
+        </label>
+      </div>
+      <div class="actions">
+        <button class="btn tiny" id="btnPrintCancel">Annulla</button>
+        <button class="btn tiny" id="btnPrintConfirm">Vai alla stampa</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Nuovi controlli flottanti -->
+  <div id="controlsLeft">
+    <button class="btn" id="btnMove_f">Sposta</button>
+    <button class="btn" id="btnLink_f">Collega</button>
+  </div>
+
+  <div id="controlsRight">
+    <button class="btn tiny" id="btnZoomIn_f">+</button>
+    <button class="btn tiny" id="btnZoomOut_f">-</button>
+    <button class="btn tiny" id="btnPan_f" title="Pan vista">✋</button>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  var board = document.getElementById("board");
+  var svg = document.getElementById("wires");
+  var viewport = document.getElementById("viewport");
+  var world = document.getElementById("world");
+  var statusEl = document.getElementById("status");
+
+  var header = document.getElementById("mainHeader");
+  var headerHandle = document.getElementById("headerHandle");
+  var headerCollapsed = false;
+
+  headerHandle.addEventListener("click", function(e){
+    e.stopPropagation();
+    headerCollapsed = !headerCollapsed;
+    if (headerCollapsed) header.classList.add("collapsed");
+    else header.classList.remove("collapsed");
+  });
+
+  var btnNew = document.getElementById("btnNew");
+  var btnLink = document.getElementById("btnLink");
+  var btnDelete = document.getElementById("btnDelete");
+  var btnPdf = document.getElementById("btnPdf");
+  var btnExportJson = document.getElementById("btnExportJson");
+  var btnExportHtml = document.getElementById("btnExportHtml");
+  var btnImport = document.getElementById("btnImport");
+  var btnMove = document.getElementById("btnMove");
+  var btnPan = document.getElementById("btnPan");
+  var btnKeyboardHelp = document.getElementById("btnKeyboardHelp");
+  var kbdOverlay = document.getElementById("kbdOverlay");
+  var btnKbdClose = document.getElementById("btnKbdClose");
+  var fileInput = document.getElementById("fileInput");
+  var btnZoomIn = document.getElementById("btnZoomIn");
+  var btnZoomOut = document.getElementById("btnZoomOut");
+
+  // bottoni flottanti in basso
+  var btnZoomIn_f  = document.getElementById("btnZoomIn_f");
+  var btnZoomOut_f = document.getElementById("btnZoomOut_f");
+  var btnPan_f     = document.getElementById("btnPan_f");
+
+  var btnMove_f    = document.getElementById("btnMove_f");
+  var btnLink_f    = document.getElementById("btnLink_f");
+
+  // Nuovi pulsanti salvataggio
+  var btnQuickSave    = document.getElementById("btnQuickSave");
+  var btnSaveOptions  = document.getElementById("btnSaveOptions");
+  var saveOverlay     = document.getElementById("saveOverlay");
+  var saveFileNameInp = document.getElementById("saveFileName");
+  var btnSaveCancel   = document.getElementById("btnSaveCancel");
+  var btnSaveConfirm  = document.getElementById("btnSaveConfirm");
+  // Pannello stampa
+  var printOverlay   = document.getElementById("printOverlay");
+  var btnPrintCancel = document.getElementById("btnPrintCancel");
+  var btnPrintConfirm= document.getElementById("btnPrintConfirm");
+
+  // stato ultimo salvataggio
+  var lastSaveBaseName = "";
+  var lastSaveFormat   = "json";
+  // ===============================
+  // PROTEZIONE REFRESH + RECOVERY
+  // ===============================
+  var isDirty = false;                         // true = modifiche non salvate
+  var AUTOSAVE_KEY = "mappa_mentale_autosave_v1";
+  var AUTOSAVE_INTERVAL_MS = 1200;
+  var autosaveTimer = null;
+
+  function markDirty(){
+    isDirty = true;
+    scheduleAutosave();
+  }
+
+  function clearDirty(){
+    isDirty = false;
+    scheduleAutosave();
+  }
+
+  function scheduleAutosave(){
+    if (autosaveTimer) clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(function(){
+      try {
+        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(getState()));
+      } catch (e) {
+        console.warn("Autosave fallito:", e);
+      }
+    }, AUTOSAVE_INTERVAL_MS);
+  }
+
+  function tryRestoreAutosave(){
+    var raw = null;
+    try { raw = localStorage.getItem(AUTOSAVE_KEY); } catch(e) {}
+    if (!raw) return;
+
+    var state = null;
+    try { state = JSON.parse(raw); } catch(e) { return; }
+    if (!state || !state.pops || !state.links) return;
+
+    var ok = confirm("Ho trovato una bozza salvata automaticamente. Vuoi ripristinarla?");
+    if (ok) {
+      try {
+        applyState(state);
+        clearDirty();
+        setStatus("Bozza ripristinata.");
+      } catch(e) {
+        console.warn("Ripristino fallito:", e);
+      }
+    }
+  }
+
+  // Avviso standard del browser (copre refresh, chiudi tab, cambio url)
+  window.addEventListener("beforeunload", function (e) {
+    if (!isDirty) return;
+    e.preventDefault();
+    e.returnValue = ""; // il browser mostra un avviso standard
+  });
+
+  // Avviso "tuo" per F5 / Ctrl+R / Cmd+R (non copre il tasto ↻ del browser)
+  window.addEventListener("keydown", function(e){
+    var k = (e.key || "");
+    var lower = k.toLowerCase();
+    var isF5 = (k === "F5");
+    var isCtrlR = (lower === "r" && (e.ctrlKey || e.metaKey));
+
+    if ((isF5 || isCtrlR) && isDirty) {
+      e.preventDefault();
+      if (confirm("Attenzione: potresti perdere il lavoro non salvato. Vuoi ricaricare?")) {
+        location.reload();
+      }
+    }
+  });
+
+
+  var txtColor = document.getElementById("txtColor");
+  var btnSizeSmall = document.getElementById("btnSizeSmall");
+  var btnSizeLarge = document.getElementById("btnSizeLarge");
+  var btnBold = document.getElementById("btnBold");
+
+  function setStatus(msg){ if(statusEl) statusEl.textContent = msg; }
+  function uid(){ return Math.random().toString(36).slice(2, 10); }
+  function boardRect(){ return board.getBoundingClientRect(); }
+
+  var pops = [];   // {id,x,y,text,color,size,borderColor,borderSize,bold,height}
+  var links = [];  // {id,from,to,end,shape,curveDir}
+  var selectedBoxId = null;
+  var selectedBoxPart = null; // "text" o "border"
+  var selectedLinkId = null;
+  var linkingFrom = null;
+  var moveMode = false;
+  var panMode = false;
+
+  var view = { x: 0, y: 0, s: 1 };
+
+  function clampScale(s){
+    return Math.max(0.35, Math.min(2.8, s));
+  }
+
+  function applyView(){
+    viewport.style.transform = "translate(" + view.x + "px," + view.y + "px) scale(" + view.s + ")";
+  }
+
+  function screenToWorld(clientX, clientY){
+    var br = board.getBoundingClientRect();
+    var sx = clientX - br.left;
+    var sy = clientY - br.top;
+    return { x: (sx - view.x)/view.s, y: (sy - view.y)/view.s };
+  }
+
+  applyView();
+
+  var pointers = new Map();
+  var panState = null;
+  var pinchState = null;
+
+  function dist(a,b){
+    var dx=a.x-b.x, dy=a.y-b.y;
+    return Math.hypot(dx,dy);
+  }
+
+  board.addEventListener("pointerdown", function(e){
+    if (e.target.closest(".pop")) return;
+
+    board.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+
+    if (pointers.size === 1){
+      if (!panMode) {
+        panState = null;
+        return;
+      }
+      panState = { startX:view.x, startY:view.y, p0:{x:e.clientX,y:e.clientY} };
+      pinchState = null;
+    }
+
+    if (pointers.size === 2){
+      var arr = Array.from(pointers.values());
+      var pA = arr[0], pB = arr[1];
+      var mid = { x:(pA.x+pB.x)/2, y:(pA.y+pB.y)/2 };
+      var wMid = screenToWorld(mid.x, mid.y);
+
+      pinchState = {
+        startS: view.s,
+        startD: dist(pA,pB),
+        midScreen: mid,
+        midWorld: wMid
+      };
+      panState = null;
+    }
+  });
+
+  board.addEventListener("pointermove", function(e){
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+
+    if (pinchState && pointers.size >= 2){
+      var arr = Array.from(pointers.values());
+      var pA = arr[0], pB = arr[1];
+      var d = dist(pA,pB);
+      view.s = clampScale(pinchState.startS * (d / pinchState.startD));
+
+      var br = board.getBoundingClientRect();
+      var midSx = pinchState.midScreen.x - br.left;
+      var midSy = pinchState.midScreen.y - br.top;
+
+      view.x = midSx - pinchState.midWorld.x * view.s;
+      view.y = midSy - pinchState.midWorld.y * view.s;
+
+      applyView();
+      renderLinks();
+      return;
+    }
+
+    if (pointers.size === 1 && panState){
+      var dx = e.clientX - panState.p0.x;
+      var dy = e.clientY - panState.p0.y;
+      view.x = panState.startX + dx;
+      view.y = panState.startY + dy;
+      applyView();
+      renderLinks();
+    }
+  });
+
+  board.addEventListener("pointerup", function(e){
+    pointers.delete(e.pointerId);
+    if (pointers.size === 0){
+      panState = null;
+      pinchState = null;
+    }
+  });
+
+  board.addEventListener("pointercancel", function(){
+    pointers.clear();
+    panState = null;
+    pinchState = null;
+  });
+
+  board.addEventListener("wheel", function(e){
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+
+    var before = screenToWorld(e.clientX, e.clientY);
+    var factor = (e.deltaY < 0) ? 1.08 : 0.92;
+    view.s = clampScale(view.s * factor);
+
+    var br = board.getBoundingClientRect();
+    var sx = e.clientX - br.left;
+    var sy = e.clientY - br.top;
+
+    view.x = sx - before.x * view.s;
+    view.y = sy - before.y * view.s;
+
+    applyView();
+    renderLinks();
+  }, { passive:false });
+
+
+  function zoomAroundCenter(factor){
+    var br = board.getBoundingClientRect();
+    var cx = br.left + br.width/2;
+    var cy = br.top + br.height/2;
+    var before = screenToWorld(cx, cy);
+
+    view.s = clampScale(view.s * factor);
+
+    var sx = cx - br.left;
+    var sy = cy - br.top;
+
+    view.x = sx - before.x * view.s;
+    view.y = sy - before.y * view.s;
+
+    applyView();
+    renderLinks();
+  }
+
+  var linkPreset = { end: "arrow", shape: "straight", curveDir: 1 };
+  var linkModal = null;
+
+  function ensureLinkModal() {
+    if (linkModal) return;
+
+    linkModal = document.createElement("div");
+    linkModal.className = "modalOverlay";
+    linkModal.innerHTML =
+      '<div class="modal" role="dialog" aria-modal="true">' +
+        '<h3>Opzioni collegamento</h3>' +
+        '<div class="row">' +
+          '<label><input type="radio" name="linkEnd" value="none"> Linea semplice</label>' +
+          '<label><input type="radio" name="linkEnd" value="arrow"> Freccia</label>' +
+        '</div>' +
+        '<div class="row">' +
+          '<label><input type="radio" name="linkShape" value="straight"> Retta</label>' +
+          '<label><input type="radio" name="linkShape" value="curve"> Curva</label>' +
+        '</div>' +
+        '<div class="row" data-curve-row>' +
+          '<label><input type="radio" name="curveDir" value="down"> Curva verso il basso</label>' +
+          '<label><input type="radio" name="curveDir" value="up"> Curva verso l\'alto</label>' +
+        '</div>' +
+        '<div class="actions">' +
+          '<button class="btn" id="linkOptCancel">Annulla</button>' +
+          '<button class="btn" id="linkOptOk">OK</button>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(linkModal);
+
+    var shapeRadios = linkModal.querySelectorAll('input[name="linkShape"]');
+    var curveRadios = linkModal.querySelectorAll('input[name="curveDir"]');
+    var curveLabels = [];
+    curveRadios.forEach(function(r){
+      if (r.parentElement) curveLabels.push(r.parentElement);
+    });
+
+    function updateCurveRadiosDisabled() {
+      var shapeVal = (linkModal.querySelector('input[name="linkShape"]:checked') || {}).value;
+      var disabled = shapeVal !== 'curve';
+
+      curveRadios.forEach(function(r){
+        r.disabled = disabled;
+      });
+      curveLabels.forEach(function(lbl){
+        lbl.style.opacity = disabled ? 0.5 : 1;
+      });
+    }
+
+    shapeRadios.forEach(function(r){
+      r.addEventListener('change', updateCurveRadiosDisabled);
+    });
+
+    linkModal._updateCurveRadiosDisabled = updateCurveRadiosDisabled;
+  }
+
+  function openLinkOptions(done) {
+    ensureLinkModal();
+
+    var endRadio = linkModal.querySelector('input[name="linkEnd"][value="' + linkPreset.end + '"]');
+    var shapeRadio = linkModal.querySelector('input[name="linkShape"][value="' + linkPreset.shape + '"]');
+    if (endRadio) endRadio.checked = true;
+    if (shapeRadio) shapeRadio.checked = true;
+
+    var curveRadioVal = (linkPreset.curveDir === -1) ? "up" : "down";
+    var curveRadio = linkModal.querySelector('input[name="curveDir"][value="' + curveRadioVal + '"]');
+    if (curveRadio) curveRadio.checked = true;
+
+    if (typeof linkModal._updateCurveRadiosDisabled === "function") {
+      linkModal._updateCurveRadiosDisabled();
+    }
+
+    linkModal.style.display = "flex";
+
+    function close() {
+      linkModal.style.display = "none";
+      okBtn.onclick = null;
+      cancelBtn.onclick = null;
+      linkModal.onclick = null;
+    }
+
+    var okBtn = linkModal.querySelector("#linkOptOk");
+    var cancelBtn = linkModal.querySelector("#linkOptCancel");
+
+    okBtn.onclick = function () {
+      var endVal = (linkModal.querySelector('input[name="linkEnd"]:checked') || {}).value || "arrow";
+      var shapeVal = (linkModal.querySelector('input[name="linkShape"]:checked') || {}).value || "straight";
+
+      var curveDir = linkPreset.curveDir || 1;
+      if (shapeVal === "curve") {
+        var curveVal = (linkModal.querySelector('input[name="curveDir"]:checked') || {}).value || "down";
+        curveDir = (curveVal === "up") ? -1 : 1;
+      }
+
+      linkPreset = { end: endVal, shape: shapeVal, curveDir: curveDir };
+      close();
+      done(true);
+    };
+
+    cancelBtn.onclick = function () {
+      close();
+      done(false);
+    };
+
+    linkModal.onclick = function (e) {
+      if (e.target === linkModal) {
+        close();
+        done(false);
+      }
+    };
+  }
+
+  function clampToBoard(x, y) {
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+    return { x:x, y:y };
+  }
+
+  function disableTextControls() {
+    txtColor.disabled = true;
+    btnSizeSmall.disabled = true;
+    btnSizeLarge.disabled = true;
+    btnBold.disabled = true;
+
+    btnSizeSmall.classList.remove("active");
+    btnSizeLarge.classList.remove("active");
+    btnBold.classList.remove("active");
+  }
+
+  function enableTextControlsForText(p) {
+    txtColor.disabled = false;
+    btnSizeSmall.disabled = false;
+    btnSizeLarge.disabled = false;
+    btnBold.disabled = false;
+
+    if (!p.color) p.color = "#000000";
+    if (!p.size) p.size = "medium";
+    if (typeof p.bold === "undefined") p.bold = false;
+
+    txtColor.value = p.color;
+
+    btnSizeSmall.classList.toggle("active", p.size === "small");
+    btnSizeLarge.classList.toggle("active", p.size === "large");
+    btnBold.classList.toggle("active", !!p.bold);
+  }
+
+  function enableTextControlsForBorder(p) {
+    txtColor.disabled = false;
+    btnSizeSmall.disabled = false;
+    btnSizeLarge.disabled = false;
+    btnBold.disabled = true;
+
+    if (!p.borderColor) p.borderColor = p.color || "#000000";
+    if (!p.borderSize) p.borderSize = "thin";
+
+    txtColor.value = p.borderColor;
+
+    btnSizeSmall.classList.remove("active");
+    btnSizeLarge.classList.remove("active");
+    if (p.borderSize === "thin") {
+      btnSizeSmall.classList.add("active");
+    } else if (p.borderSize === "thick") {
+      btnSizeLarge.classList.add("active");
+    }
+  }
+
+  function enableTextControlsForLink(l) {
+    // Per i collegamenti abilitiamo solo il colore
+    txtColor.disabled = false;
+    btnSizeSmall.disabled = true;
+    btnSizeLarge.disabled = true;
+    btnBold.disabled = true;
+
+    btnSizeSmall.classList.remove("active");
+    btnSizeLarge.classList.remove("active");
+    btnBold.classList.remove("active");
+
+    txtColor.value = l.color || "#000000";
+  }
+
+  function updateTextControls() {
+    if (selectedBoxId) {
+      var p = pops.find(function(pp){ return pp.id === selectedBoxId; });
+      if (!p) {
+        disableTextControls();
+        return;
+      }
+      if (selectedBoxPart === "border") {
+        enableTextControlsForBorder(p);
+      } else {
+        enableTextControlsForText(p);
+      }
+      return;
+    }
+
+    if (selectedLinkId) {
+      var l = links.find(function(ll){ return ll.id === selectedLinkId; });
+      if (!l) {
+        disableTextControls();
+        return;
+      }
+      enableTextControlsForLink(l);
+      return;
+    }
+
+    disableTextControls();
+  }
+
+  function clearSelections() {
+    selectedBoxId = null;
+    selectedBoxPart = null;
+    selectedLinkId = null;
+    var a = document.querySelectorAll(".pop");
+    for (var i=0;i<a.length;i++) a[i].classList.remove("selected");
+    var b = document.querySelectorAll(".linkLine");
+    for (var j=0;j<b.length;j++) b[j].classList.remove("selected");
+    updateTextControls();
+  }
+
+  function selectBox(id) {
+    selectedBoxId = id;
+    selectedLinkId = null;
+    var a = document.querySelectorAll(".pop");
+    for (var i=0;i<a.length;i++) {
+      a[i].classList.toggle("selected", a[i].dataset.id === id);
+    }
+    var b = document.querySelectorAll(".linkLine");
+    for (var j=0;j<b.length;j++) b[j].classList.remove("selected");
+    updateTextControls();
+  }
+
+  function selectLink(id) {
+    selectedLinkId = id;
+    selectedBoxId = null;
+    selectedBoxPart = null;
+    var a = document.querySelectorAll(".linkLine");
+    for (var i=0;i<a.length;i++) {
+      a[i].classList.toggle("selected", a[i].dataset.linkid === id);
+    }
+    var b = document.querySelectorAll(".pop");
+    for (var j=0;j<b.length;j++) b[j].classList.remove("selected");
+    updateTextControls();
+  }
+
+  function setPanMode(on){
+    panMode = !!on;
+    if (panMode){
+      btnPan.classList.add("active");
+      if (btnPan_f) btnPan_f.classList.add("active");
+      setStatus("Modalità Pan: trascina lo sfondo per spostarti.");
+    } else {
+      btnPan.classList.remove("active");
+      if (btnPan_f) btnPan_f.classList.remove("active");
+      setStatus("Pensa ad un argomento e scrivigli intorno tutto quello che ti viene in mente");
+    }
+  }
+
+  function setLinkMode(on) {
+    if (on) {
+      if (moveMode) setMoveMode(false);
+      if (panMode) setPanMode(false);
+      if (!selectedBoxId) { setStatus("Seleziona un box prima di collegare."); return; }
+
+      linkPreset = linkPreset || { end:"arrow", shape:"straight", curveDir:1 };
+
+      openLinkOptions(function (ok) {
+        if (!ok) { setStatus("Collegamento annullato."); return; }
+
+        linkingFrom = selectedBoxId;
+        btnLink.classList.add("active");
+        var a = document.querySelectorAll(".pop");
+        for (var i=0;i<a.length;i++) {
+          a[i].classList.toggle("linking", a[i].dataset.id === linkingFrom);
+        }
+        setStatus("Modalita collega: clicca un altro box.");
+      });
+
+      return;
+    } else {
+      linkingFrom = null;
+      btnLink.classList.remove("active");
+      var b = document.querySelectorAll(".pop");
+      for (var j=0;j<b.length;j++) b[j].classList.remove("linking");
+      setStatus("Pensa ad un argomento e scrivigli intorno tutto quello che ti viene in mente");
+    }
+  }
+      
+  function setMoveMode(on) {
+    moveMode = !!on;
+
+    if (moveMode) {
+      setLinkMode(false);
+      setPanMode(false);
+      btnMove.classList.add("active");
+      if (btnMove_f) btnMove_f.classList.add("active");
+      setStatus("Modalita sposta: trascina i box.");
+    } else {
+      btnMove.classList.remove("active");
+      if (btnMove_f) btnMove_f.classList.remove("active");
+      setStatus("Pensa ad un argomento e scrivigli intorno tutto quello che ti viene in mente");
+    }
+
+    var tas = document.querySelectorAll(".pop .body");
+    for (var i = 0; i < tas.length; i++) {
+      tas[i].readOnly = moveMode;
+    }
+  }
+  
+  function autoGrow(ta, popModel) {
+    ta.style.height = "auto";
+
+    var computed = window.getComputedStyle(ta);
+    var lineH = parseFloat(computed.lineHeight);
+    if (isNaN(lineH)) {
+      lineH = parseFloat(computed.fontSize) * 1.25 || 18;
+    }
+
+    var txt = ta.value || "";
+    var needed;
+
+    if (!txt.trim()) {
+      if (popModel && popModel.bigIntro) {
+        needed = lineH * 4;
+      } else {
+        needed = lineH;
+      }
+    } else {
+      needed = ta.scrollHeight;
+      if (needed < lineH) needed = lineH;
+    }
+
+    if (popModel) {
+      popModel.height = needed;
+    }
+
+    ta.style.height = needed + "px";
+  }
+  
+  function resizeSelectedTextarea() {
+    if (!selectedBoxId) return;
+    var p = pops.find(function(pp){ return pp.id === selectedBoxId; });
+    if (!p) return;
+    var ta = document.querySelector('.pop[data-id="' + selectedBoxId + '"] .body');
+    if (ta) autoGrow(ta, p);
+  }
+
+  function createPop(x, y) {
+    var isFirst = (pops.length === 0);
+
+    var p = {
+      id: uid(),
+      x: x,
+      y: y,
+      text: "",
+      color: "#000000",
+      borderColor: "#000000",
+      size: "medium",
+      borderSize: "thin",
+      bold: false,
+      height: 0,
+      bigIntro: isFirst
+    };
+
+    pops.push(p);
+    markDirty();
+    render();
+
+    selectBox(p.id);
+
+    setStatus(
+      "Pensa ad un argomento e scrivigli intorno tutto quello che ti viene in mente"
+    );
+
+    var el = document.querySelector('.pop[data-id="' + p.id + '"] .body');
+    if (el) el.focus();
+  }
+
+  function addLink(from, to, preset) {
+    if (!from || !to || from === to) return;
+    for (var i=0;i<links.length;i++) {
+      if (links[i].from === from && links[i].to === to) return;
+    }
+    var p = preset || linkPreset || { end:"arrow", shape:"straight", curveDir:1 };
+    var curveDir = (typeof p.curveDir === "number") ? p.curveDir : 1;
+    links.push({ id: uid(), from: from, to: to, end: p.end, shape: p.shape, curveDir: curveDir });
+  
+    markDirty();}
+
+  function deleteSelected() {
+    if (selectedLinkId) {
+      links = links.filter(function (l) { return l.id !== selectedLinkId; });
+      selectedLinkId = null;
+      markDirty();
+      renderLinks();
+      setStatus("Collegamento eliminato.");
+      return;
+    }
+    if (selectedBoxId) {
+      var id = selectedBoxId;
+      pops = pops.filter(function (p) { return p.id !== id; });
+      links = links.filter(function (l) { return l.from !== id && l.to !== id; });
+      selectedBoxId = null;
+      markDirty();
+      if (linkingFrom === id) setLinkMode(false);
+      render();
+      setStatus("Box eliminato.");
+      return;
+    }
+    setStatus("Nessuna selezione.");
+  }
+
+  function getPopBoxInBoardCoords(id) {
+    var el = document.querySelector('.pop[data-id="'+id+'"]');
+    if (!el) return null;
+
+    var x = el.offsetLeft;
+    var y = el.offsetTop;
+    var w = el.offsetWidth;
+    var h = el.offsetHeight;
+
+    return {
+      cx: x + w/2, cy: y + h/2,
+      hw: w/2, hh: h/2
+    };
+  }
+
+  function edgePoint(cx, cy, hw, hh, dx, dy) {
+    if (dx === 0 && dy === 0) return { x: cx, y: cy };
+    var tx = Math.abs(dx) / hw;
+    var ty = Math.abs(dy) / hh;
+    var t = 1 / Math.max(tx, ty);
+    return { x: cx + dx * t, y: cy + dy * t };
+  }
+
+  function renderLinks() {
+    while (svg.firstChild) svg.firstChild.remove();
+
+    var NS = "http://www.w3.org/2000/svg";
+    var defs = document.createElementNS(NS, "defs");
+    var marker = document.createElementNS(NS, "marker");
+    marker.setAttribute("id", "arrow");
+    marker.setAttribute("viewBox", "0 0 10 10");
+    marker.setAttribute("refX", "9");
+    marker.setAttribute("refY", "5");
+    marker.setAttribute("markerWidth", "7");
+    marker.setAttribute("markerHeight", "7");
+    marker.setAttribute("orient", "auto");
+    marker.setAttribute("markerUnits", "strokeWidth");
+
+    var path = document.createElementNS(NS, "path");
+    path.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
+    path.setAttribute("fill", "rgba(0,0,0,.55)");
+    marker.appendChild(path);
+    defs.appendChild(marker);
+    svg.appendChild(defs);
+
+    links.forEach(function (l) {
+      var A = getPopBoxInBoardCoords(l.from);
+      var B = getPopBoxInBoardCoords(l.to);
+      if (!A || !B) return;
+
+      var dx = B.cx - A.cx;
+      var dy = B.cy - A.cy;
+
+      var p1 = edgePoint(A.cx, A.cy, A.hw, A.hh, dx, dy);
+      var p2 = edgePoint(B.cx, B.cy, B.hw, B.hh, -dx, -dy);
+
+      var end = l.end || "arrow";
+      var shape = l.shape || "straight";
+
+      var color = l.color || "#000000";
+      if (!l.color) {
+        var toPop = pops.find(function(pp){ return pp.id === l.to; });
+        if (toPop && toPop.color) color = toPop.color;
+      }
+
+      var elWire;
+
+      if (shape === "curve") {
+        var mx = (p1.x + p2.x) / 2;
+        var my = (p1.y + p2.y) / 2;
+
+        var len = Math.hypot(dx, dy) || 1;
+        var nx = -dy / len;
+        var ny =  dx / len;
+
+        var offset = Math.min(70, Math.max(20, len / 4));
+        var dir = (typeof l.curveDir === "number") ? l.curveDir : 1;
+        var cx = mx + nx * offset * dir;
+        var cy = my + ny * offset * dir;
+
+        elWire = document.createElementNS(NS, "path");
+        elWire.setAttribute("fill", "none");
+        elWire.setAttribute("d", "M " + p1.x + " " + p1.y + " Q " + cx + " " + cy + " " + p2.x + " " + p2.y);
+      } else {
+        elWire = document.createElementNS(NS, "line");
+        elWire.setAttribute("x1", p1.x);
+        elWire.setAttribute("y1", p1.y);
+        elWire.setAttribute("x2", p2.x);
+        elWire.setAttribute("y2", p2.y);
+      }
+
+      if (end === "arrow") {
+        elWire.setAttribute("marker-end", "url(#arrow)");
+      }
+
+      elWire.classList.add("linkLine");
+      elWire.dataset.linkid = l.id;
+      elWire.style.stroke = color;
+
+      if (l.id === selectedLinkId) elWire.classList.add("selected");
+
+      function handlePointerDown(e){
+        e.stopPropagation();
+        setLinkMode(false);
+        selectLink(l.id);
+        setStatus("Collegamento selezionato.");
+      }
+
+      function handleDblClick(e){
+        e.stopPropagation();
+        setLinkMode(false);
+        selectLink(l.id);
+
+        linkPreset = {
+          end: l.end || "arrow",
+          shape: l.shape || "straight",
+          curveDir: (typeof l.curveDir === "number") ? l.curveDir : 1
+        };
+
+        openLinkOptions(function(ok){
+          if (!ok) {
+            setStatus("Modifica collegamento annullata.");
+            return;
+          }
+          l.end = linkPreset.end;
+          l.shape = linkPreset.shape;
+          l.curveDir = linkPreset.curveDir;
+                    markDirty();
+          renderLinks();
+          setStatus("Collegamento aggiornato.");
+        });
+      }
+
+      elWire.addEventListener("pointerdown", handlePointerDown);
+      elWire.addEventListener("dblclick", handleDblClick);
+
+      svg.appendChild(elWire);
+    });
+  }
+
+  function render() {
+    var old = world.querySelectorAll(".pop");
+    for (var i=0;i<old.length;i++) old[i].remove();
+
+    var ghost = board.querySelector(".ghost");
+    if (ghost) ghost.style.display = pops.length ? "none" : "flex";
+
+    pops.forEach(function (p, idx) {
+      if (!p.color) p.color = "#000000";
+      if (!p.size) p.size = "medium";
+      if (typeof p.bold === "undefined") p.bold = false;
+
+      var el = document.createElement("div");
+      el.className = "pop";
+      el.dataset.id = p.id;
+      el.style.left = p.x + "px";
+      el.style.top  = p.y + "px";
+
+      el.style.borderColor = p.color || "#000000";
+
+      var placeholderAttr = "";
+      if (idx === 0) {
+        placeholderAttr = ' placeholder="Scrivi qui l&#39;argomento a cui stai pensando e di cui vuoi fare una mappa."';
+      } else {
+        placeholderAttr = ' placeholder=""';
+      }
+
+      el.innerHTML =
+        '<textarea class="body" spellcheck="false" rows="1" cols="6"' + placeholderAttr + '></textarea>';
+
+      var ta = el.querySelector(".body");
+
+      ta.value = p.text || "";
+
+      var textSizeKey = p.size || "medium";
+      var fontSizePx;
+      if (textSizeKey === "small") {
+        fontSizePx = "14px";
+      } else if (textSizeKey === "large") {
+        fontSizePx = "22px";
+      } else {
+        fontSizePx = "18px";   // medium
+      }
+
+      var borderSizeKey = p.borderSize || "thin";
+      var borderWidth;
+      if (borderSizeKey === "thin") {
+        borderWidth = 1;
+      } else if (borderSizeKey === "thick") {
+        borderWidth = 3;
+      } else {
+        borderWidth = 2;       // medium
+      }
+
+      ta.style.fontSize = fontSizePx;
+      ta.style.fontWeight = p.bold ? "700" : "400";
+      ta.style.color = p.color || "#000000";
+      el.style.borderWidth = borderWidth + "px";
+      el.style.borderColor = p.borderColor || "#000000";
+
+      if (typeof p.height === "number" && p.height > 0) {
+        ta.style.height = p.height + "px";
+      } else {
+        autoGrow(ta, p);
+      }
+
+      if (p.id === selectedBoxId) el.classList.add("selected");
+      if (p.id === linkingFrom) el.classList.add("linking");
+
+      ta.addEventListener("focus", function () {
+        selectedBoxPart = "text";
+        selectBox(p.id);
+
+        /* SU SMARTPHONE: chiudo l'header per liberare spazio
+           e porto il box al centro dello schermo */
+        if (window.innerWidth <= 768) {
+          headerCollapsed = true;
+          header.classList.add("collapsed");
+          setTimeout(function(){
+            try {
+              el.scrollIntoView({ block: "center", behavior: "smooth" });
+            } catch(e) {}
+          }, 80);
+        }
+      });
+
+      ta.addEventListener("mousedown", function (e) {
+        selectedBoxPart = "text";
+        selectBox(p.id);
+        if (linkingFrom && linkingFrom !== p.id) e.preventDefault();
+      });
+
+      ta.addEventListener("input", function (e) {
+        markDirty();
+        p.text = e.target.value;
+        autoGrow(ta, p);
+        renderLinks();
+      });
+
+      ta.addEventListener("blur", function(){
+        /* opzionale: non riapro l'header automaticamente
+           per non creare movimento continuo; puoi riabilitare se preferisci */
+      });
+
+      el.addEventListener("click", function () {
+        if (linkingFrom && linkingFrom !== p.id) {
+          addLink(linkingFrom, p.id, linkPreset);
+          setLinkMode(false);
+          renderLinks();
+          setStatus("Collegamento creato.");
+        }
+      });
+
+      var dragging = false, sx=0, sy=0, ox=0, oy=0;
+
+      el.addEventListener("pointerdown", function (e) {
+        if (e.target && e.target.classList && e.target.classList.contains("body")) selectedBoxPart = "text"; else selectedBoxPart = "border";
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        if (!moveMode && e.target && e.target.tagName && e.target.tagName.toLowerCase() === "textarea") return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        setLinkMode(false);
+        selectBox(p.id);
+
+        dragging = true;
+        sx = e.clientX; sy = e.clientY;
+        ox = p.x; oy = p.y;
+
+        if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
+
+        function onMove(ev) {
+          if (!dragging) return;
+          var dx = (ev.clientX - sx) / view.s;
+          var dy = (ev.clientY - sy) / view.s;
+          var pos = clampToBoard(ox + dx, oy + dy);
+          p.x = pos.x; p.y = pos.y;
+          el.style.left = p.x + "px";
+          el.style.top  = p.y + "px";
+          renderLinks();
+        }
+
+        function onUp(ev) {
+          dragging = false;
+          if (p.x !== ox || p.y !== oy) { markDirty(); }
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", onUp);
+        }
+
+        window.addEventListener("pointermove", onMove, { passive:false });
+        window.addEventListener("pointerup", onUp, { passive:true });
+      });
+
+      world.appendChild(el);
+    });
+
+    renderLinks();
+    updateTextControls();
+  }
+
+  function getState() {
+    return { version: 3, createdAt: new Date().toISOString(), pops: pops, links: links };
+  }
+
+  function downloadBlob(name, blob) {
+    var a = document.createElement("a");
+    var url = URL.createObjectURL(blob);
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function exportJSON(customBaseName) {
+    var stateStr = JSON.stringify(getState(), null, 2);
+    var blob = new Blob([stateStr], { type: "application/json;charset=utf-8" });
+
+    var filename;
+    if (customBaseName && customBaseName.trim()) {
+      var base = customBaseName.trim();
+      if (!/\.(json)$/i.test(base)) base += ".json";
+      filename = base;
+    } else {
+      filename = "mappa_" + new Date().toISOString().slice(0,19).split(":").join("-") + ".json";
+    }
+
+    downloadBlob(filename, blob);
+    setStatus("Esportato JSON (" + filename + ").");
+  
+    clearDirty();}
+
+  function exportHTML(customBaseName) {
+    var state = JSON.stringify(getState(), null, 2);
+
+    var html =
+      '<!doctype html>' +
+      '<html lang="it">' +
+      '<head>' +
+      '<meta charset="utf-8"/>' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1"/>' +
+      '<title>Visivamente — Crea mappe mentali online</title>' +
+      '</head>' +
+      '<body>' +
+      '<h3>Mappa esportata</h3>' +
+      '<p>Importa questo file nell\'app con il pulsante Importa.</p>' +
+      '<textarea id="popplet_export_data" style="display:none;">' +
+      state +
+      '</textarea>' +
+      '</body>' +
+      '</html>';
+
+    var blob = new Blob([html], { type: "text/html;charset=utf-8" });
+
+    var filename;
+    if (customBaseName && customBaseName.trim()) {
+      var base = customBaseName.trim();
+      if (!/\.(html?|htm)$/i.test(base)) base += ".html";
+      filename = base;
+    } else {
+      filename = "mappa_" + new Date().toISOString().slice(0,19).replace(/:/g,'-') + ".html";
+    }
+
+    downloadBlob(filename, blob);
+    setStatus("Esportato HTML (" + filename + ").");
+  
+    clearDirty();}
+  
+  function parseImportedText(text) {
+    var t = (text || "").trim();
+
+    if (t.charAt(0) === "{" || t.charAt(0) === "[") {
+      return JSON.parse(t);
+    }
+
+    var re = /<textarea[^>]*id=["']popplet_export_data["'][^>]*>([\s\S]*?)<\/textarea>/i;
+    var m = text.match(re);
+    if (!m) throw new Error("File non riconosciuto");
+
+    return JSON.parse(m[1]);
+  }
+
+  function applyState(state) {
+    if (!state || !state.pops || !state.links) throw new Error("Dati incompleti");
+
+    pops = state.pops;
+    links = state.links;
+
+    clearSelections();
+    setLinkMode(false);
+    render();
+    setStatus("Import OK.");
+  
+    clearDirty();
+    scheduleAutosave();}
+
+  function exportPDF() {
+    setStatus("Stampa: scegli Salva come PDF.");
+    window.print();
+  }
+
+  board.addEventListener("mousedown", function (e) {
+    if (e.target === board) {
+      clearSelections();
+      setLinkMode(false);
+      setStatus("Pensa ad un argomento e scrivigli intorno tutto quello che ti viene in mente");
+    }
+  });
+
+  board.addEventListener("dblclick", function (e) {
+    if (e.target && e.target.closest && e.target.closest(".pop")) return;
+    var p = screenToWorld(e.clientX, e.clientY);
+    var pos = clampToBoard(p.x, p.y);
+    createPop(pos.x, pos.y);
+  });
+
+  window.addEventListener("keydown", function (e) {
+    var key = (e.key || "").toLowerCase();
+    if (key === "delete" || key === "backspace") {
+      var active = document.activeElement;
+      var inEditor = active && active.tagName === "TEXTAREA";
+      if (!inEditor) { e.preventDefault(); deleteSelected(); }
+    }
+    if (key === "escape") setLinkMode(false);
+  });
+
+  btnNew.addEventListener("click", function () {
+    var r = boardRect();
+    createPop(20 + Math.random()*(r.width-260), 20 + Math.random()*(r.height-160));
+  });
+  btnLink.addEventListener("click", function () { setLinkMode(!linkingFrom); });
+  btnDelete.addEventListener("click", deleteSelected);
+  btnMove.addEventListener("click", function () { setMoveMode(!moveMode); });
+
+  btnPan.addEventListener("click", function () {
+    var newOn = !panMode;
+    if (newOn) {
+      setMoveMode(false);
+      setLinkMode(false);
+    }
+    setPanMode(newOn);
+  });
+
+  btnPdf.addEventListener("click", function(){
+    if (printOverlay) {
+      printOverlay.style.display = "flex";
+    } else {
+      exportPDF();
+    }
+  });
+  btnImport.addEventListener("click", doImport);
+  btnZoomIn.addEventListener("click", function(){ zoomAroundCenter(1.15); });
+  btnZoomOut.addEventListener("click", function(){ zoomAroundCenter(1/1.15); });
+
+  // Apertura pannello Opzioni salvataggio
+  function openSaveOverlay() {
+    if (!saveOverlay) return;
+    // preset nome file
+    if (saveFileNameInp) {
+      saveFileNameInp.value = lastSaveBaseName || "";
+    }
+    // preset formato
+    var radios = saveOverlay.querySelectorAll('input[name="saveFormat"]');
+    var current = lastSaveFormat || "json";
+    radios.forEach(function(r){
+      r.checked = (r.value === current);
+    });
+
+    saveOverlay.style.display = "flex";
+    if (saveFileNameInp) {
+      setTimeout(function(){
+        saveFileNameInp.focus();
+        saveFileNameInp.select();
+      }, 50);
+    }
+  }
+
+  function closeSaveOverlay() {
+    if (saveOverlay) saveOverlay.style.display = "none";
+  }
+
+  if (btnSaveOptions) {
+    btnSaveOptions.addEventListener("click", function(){
+      openSaveOverlay();
+    });
+  }
+
+  if (btnSaveCancel) {
+    btnSaveCancel.addEventListener("click", function(){
+      closeSaveOverlay();
+    });
+  }
+
+  if (saveOverlay) {
+    saveOverlay.addEventListener("click", function(e){
+      if (e.target === saveOverlay) {
+        closeSaveOverlay();
+      }
+    });
+  }
+
+  // Gestione pannello stampa
+  if (btnPrintCancel && printOverlay) {
+    btnPrintCancel.addEventListener("click", function(){
+      printOverlay.style.display = "none";
+    });
+  }
+  if (btnPrintConfirm && printOverlay) {
+    btnPrintConfirm.addEventListener("click", function(){
+      printOverlay.style.display = "none";
+      exportPDF();
+    });
+  }
+
+  if (btnSaveConfirm) {
+    btnSaveConfirm.addEventListener("click", function(){
+      if (!saveOverlay) return;
+
+      var baseName = (saveFileNameInp && saveFileNameInp.value.trim()) || "";
+      if (!baseName) {
+        baseName = "mappa_mentale";
+      }
+
+      var radios = saveOverlay.querySelectorAll('input[name="saveFormat"]');
+      var chosen = "json";
+      radios.forEach(function(r){
+        if (r.checked) chosen = r.value;
+      });
+
+      lastSaveBaseName = baseName;
+      lastSaveFormat   = chosen;
+
+      if (chosen === "html") {
+        exportHTML(baseName);
+      } else {
+        exportJSON(baseName);
+      }
+
+      closeSaveOverlay();
+    });
+  }
+
+  // Salva rapido: sempre JSON, riusa il nome dell'ultima volta (se presente)
+  if (btnQuickSave) {
+    btnQuickSave.addEventListener("click", function(){
+      if (lastSaveBaseName) {
+        exportJSON(lastSaveBaseName);
+      } else {
+        exportJSON(null);  // nome con timestamp, come prima
+      }
+    });
+  }
+
+  // Collego i pulsanti flottanti alle stesse azioni dei bottoni originali
+  if (btnZoomIn_f) {
+    btnZoomIn_f.addEventListener("click", function(){
+      btnZoomIn.click();
+    });
+  }
+
+  if (btnZoomOut_f) {
+    btnZoomOut_f.addEventListener("click", function(){
+      btnZoomOut.click();
+    });
+  }
+
+  if (btnPan_f) {
+    btnPan_f.addEventListener("click", function(){
+      btnPan.click();
+    });
+  }
+
+  if (btnMove_f) {
+    btnMove_f.addEventListener("click", function(){
+      btnMove.click();
+    });
+  }
+
+  if (btnLink_f) {
+    btnLink_f.addEventListener("click", function(){
+      btnLink.click();
+    });
+  }
+
+  txtColor.addEventListener("input", function(){
+    var newColor = txtColor.value || "#000000";
+
+    // Se è selezionato un collegamento, cambia colore alla freccia
+    if (selectedLinkId && !selectedBoxId) {
+      var l = links.find(function(ll){ return ll.id === selectedLinkId; });
+      if (l) {
+        l.color = newColor;
+                markDirty();
+        renderLinks();
+      }
+      return;
+    }
+
+    // Se è selezionato un box, controlla se stai lavorando su testo o bordo
+    if (!selectedBoxId) return;
+    var p = pops.find(function(pp){ return pp.id === selectedBoxId; });
+    if (!p) return;
+
+    if (selectedBoxPart === "text") {
+      p.color = newColor;
+      var ta = document.querySelector('.pop[data-id="'+p.id+'"] .body');
+      if (ta) ta.style.color = p.color;
+          markDirty();
+    } else {
+      p.borderColor = newColor;
+      var boxEl = document.querySelector('.pop[data-id="'+p.id+'"]');
+      if (boxEl) boxEl.style.borderColor = p.borderColor;
+            markDirty();
+      // aggiorna frecce in modo coerente con il bordo solo se non hanno un colore proprio
+    }
+
+    renderLinks();
+  });
+
+  btnSizeSmall.addEventListener("click", function(){
+    if (!selectedBoxId) return;
+    var p = pops.find(function(pp){ return pp.id === selectedBoxId; });
+    if (!p) return;
+
+    if (selectedBoxPart === "border") {
+      // scala bordo verso il più sottile: thick -> medium -> thin
+      var current = p.borderSize || "thin";
+      if (current === "thick") current = "medium";
+      else current = "thin";
+      p.borderSize = current;
+    } else {
+      // scala testo verso il più piccolo: large -> medium -> small
+      var current = p.size || "medium";
+      if (current === "large") current = "medium";
+      else current = "small";
+      p.size = current;
+    }
+
+    markDirty();
+
+    var ta = document.querySelector('.pop[data-id="'+p.id+'"] .body');
+    if (ta) {
+      autoGrow(ta, p);
+    }
+    render();
+    updateTextControls();
+  });
+
+  btnSizeLarge.addEventListener("click", function(){
+    if (!selectedBoxId) return;
+    var p = pops.find(function(pp){ return pp.id === selectedBoxId; });
+    if (!p) return;
+
+    if (selectedBoxPart === "border") {
+      // scala bordo verso il più spesso: thin -> medium -> thick
+      var current = p.borderSize || "thin";
+      if (current === "thin") current = "medium";
+      else current = "thick";
+      p.borderSize = current;
+    } else {
+      // scala testo verso il più grande: small -> medium -> large
+      var current = p.size || "medium";
+      if (current === "small") current = "medium";
+      else current = "large";
+      p.size = current;
+    }
+
+    markDirty();
+
+    var ta = document.querySelector('.pop[data-id="'+p.id+'"] .body');
+    if (ta) {
+      autoGrow(ta, p);
+    }
+    render();
+    updateTextControls();
+  });
+
+  btnBold.addEventListener("click", function(){
+    if (!selectedBoxId) return;
+    var p = pops.find(function(pp){ return pp.id === selectedBoxId; });
+    if (!p) return;
+    p.bold = !p.bold;
+
+    markDirty();
+
+    var ta = document.querySelector('.pop[data-id="'+p.id+'"] .body');
+    if (ta) {
+      ta.style.fontWeight = p.bold ? "700" : "400";
+      autoGrow(ta, p);
+    }
+    updateTextControls();
+  });
+
+  function doImport() {
+    fileInput.value = "";
+    fileInput.click();
+  }
+
+  fileInput.addEventListener("change", function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    file.text().then(function (text) {
+      var state = parseImportedText(text);
+      applyState(state);
+    }).catch(function (err) {
+      console.error(err);
+      setStatus("Errore import.");
+      alert("Import fallito: usa un file esportato da questa app (JSON o HTML).");
+    });
+  });
+
+  btnKeyboardHelp.addEventListener("click", function(){
+    kbdOverlay.style.display = "flex";
+  });
+  btnKbdClose.addEventListener("click", function(){
+    kbdOverlay.style.display = "none";
+  });
+  kbdOverlay.addEventListener("click", function(e){
+    if (e.target === kbdOverlay) {
+      kbdOverlay.style.display = "none";
+    }
+  });
+
+  render();
+  setStatus("Pensa ad un argomento e scrivigli intorno tutto quello che ti viene in mente");
+
+  
+
+  tryRestoreAutosave();/* --- ADATTAMENTO CONTROLLI FLOTTANTI CON TASTIERA MOBILE --- */
+  if (window.visualViewport) {
+    var vv = window.visualViewport;
+    var baseBottom = 20;
+
+    function adjustForKeyboard() {
+      // solo su dispositivi piccoli ha senso
+      if (window.innerWidth > 900) {
+        document.documentElement.style.setProperty('--controls-bottom', baseBottom + 'px');
+        return;
+      }
+      var delta = window.innerHeight - vv.height;
+      if (delta > 100) {
+        // probabile tastiera aperta: alzo i controlli sopra
+        document.documentElement.style.setProperty(
+          '--controls-bottom',
+          (delta + baseBottom) + 'px'
+        );
+      } else {
+        document.documentElement.style.setProperty('--controls-bottom', baseBottom + 'px');
+      }
+    }
+
+    vv.addEventListener('resize', adjustForKeyboard);
+    window.addEventListener('orientationchange', function(){
+      setTimeout(adjustForKeyboard, 300);
+    });
+
+    adjustForKeyboard();
+  }
+})();
+</script>
 </body>
 </html>
